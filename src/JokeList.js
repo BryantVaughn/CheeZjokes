@@ -17,6 +17,7 @@ class JokeList extends Component {
       jokes: JSON.parse(window.localStorage.getItem("jokes") || "[]"),
       loading: false
     };
+    this.seenJokes = new Set(this.state.jokes.map(j => j.text));
     this.handleClick = this.handleClick.bind(this);
   }
 
@@ -25,21 +26,34 @@ class JokeList extends Component {
   }
 
   async getJokes() {
-    let jokes = [];
-    while(jokes.length < this.props.numJokesToGet) {
-      let res = await axios.get(API_URL, {
-        headers: { Accept: "application/json" }
-      });
-      jokes.push({ id: uuidv4(), text: res.data.joke, votes: 0 });
-    }
+    try {
+      let jokes = [];
+      while(jokes.length < this.props.numJokesToGet) {
+        let res = await axios.get(API_URL, {
+          headers: { Accept: "application/json" }
+        });
 
-    this.setState(st => ({
-      loading: false,
-      jokes: [...st.jokes, ...jokes]
-    }),
-    () =>
-      window.localStorage.setItem("jokes", JSON.stringify(this.state.jokes))
-    );
+        let newJoke = res.data.joke;
+        if(!this.seenJokes.has(newJoke)) {
+          jokes.push({ id: uuidv4(), text: newJoke, votes: 0 });
+        } else {
+          console.log("FOUND A DUPLICATE!");
+          console.log(newJoke);
+        }
+      }
+
+      this.setState(st => ({
+        loading: false,
+        jokes: [...st.jokes, ...jokes]
+      }),
+      () =>
+        window.localStorage.setItem("jokes", JSON.stringify(this.state.jokes))
+      );
+    } catch(e) {
+      alert(e);
+      this.setState({ loading: false });
+    }
+    
   }
 
   handleVote(id, delta) {
@@ -63,8 +77,10 @@ class JokeList extends Component {
           <i className="far fa-8x fa-laugh fa-spin" />
           <h1 className="JokeList-title">Loading...</h1>
         </div>
-      )
+      );
     }
+
+    let jokes = this.state.jokes.sort((a, b) => b.votes - a.votes);
     return (
       <div className="JokeList">
         <div className="JokeList-sidebar">
@@ -75,11 +91,11 @@ class JokeList extends Component {
             src="https://assets.dryicons.com/uploads/icon/svg/8927/0eb14c71-38f2-433a-bfc8-23d9c99b3647.svg"
             alt="Cry Laughing Emoji"
           />
-          <button className="JokeList-getmore" onClick={ this.handleClick }>New Jokes</button>
+          <button className="JokeList-getmore" onClick={ this.handleClick }>Fetch Jokes</button>
         </div>
 
         <div className="JokeList-jokes">
-          {this.state.jokes.map(j => (
+          { jokes.map(j => (
             <Joke
               key={ j.id }
               votes={ j.votes }
