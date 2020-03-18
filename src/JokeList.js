@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import Joke from './Joke';
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 import './JokeList.css';
 
 const API_URL = "https://icanhazdadjoke.com/";
@@ -13,20 +14,33 @@ class JokeList extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      jokes: []
+      jokes: JSON.parse(window.localStorage.getItem("jokes") || "[]")
     };
   }
 
   async componentDidMount() {
+    if(this.state.jokes.length === 0) this.getJokes();
+  }
+
+  async getJokes() {
     let jokes = [];
     while(jokes.length < this.props.numJokesToGet) {
       let res = await axios.get(API_URL, {
         headers: { Accept: "application/json" }
       });
-      jokes.push({ text: res.data.joke, votes: 0 });
+      jokes.push({ id: uuidv4(), text: res.data.joke, votes: 0 });
     }
 
     this.setState({ jokes: jokes });
+    window.localStorage.setItem("jokes", JSON.stringify(jokes));
+  }
+
+  handleVote(id, delta) {
+    this.setState(st => ({
+      jokes: st.jokes.map(j =>
+        j.id === id ? {...j, votes: j.votes + delta } : j
+      )
+    }));
   }
 
   render() {
@@ -45,7 +59,13 @@ class JokeList extends Component {
 
         <div className="JokeList-jokes">
           {this.state.jokes.map(j => (
-            <Joke votes={ j.votes } text={ j.text } />
+            <Joke
+              key={ j.id }
+              votes={ j.votes }
+              text={ j.text }
+              upvote={ () => this.handleVote(j.id, 1) }
+              downvote={ () => this.handleVote(j.id, -1) }
+            />
           ))}
         </div>
       </div>
